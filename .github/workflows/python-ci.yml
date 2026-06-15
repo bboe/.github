@@ -1,0 +1,58 @@
+name: python-ci
+
+on:
+  workflow_call:
+    inputs:
+      python-versions:
+        type: string
+        default: '["3.10", "3.11", "3.12", "3.13", "3.14"]'
+      os:
+        type: string
+        default: '["ubuntu-latest"]'
+      test-group:
+        type: string
+        default: "test"
+      pytest-args:
+        type: string
+        default: ""
+      locked:
+        type: boolean
+        default: false
+      lint:
+        type: boolean
+        default: true
+
+permissions: {}
+
+jobs:
+  lint:
+    if: ${{ inputs.lint }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+      - run: uvx pre-commit run --all-files
+        env:
+          SKIP: no-commit-to-branch
+
+  test:
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: ${{ fromJSON(inputs.os) }}
+        python: ${{ fromJSON(inputs.python-versions) }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@fac544c07dec837d0ccb6301d7b5580bf5edae39 # v8.2.0
+      - run: uv run ${{ inputs.locked && '--locked' || '' }} --python ${{ matrix.python }} --group ${{ inputs.test-group }} pytest ${{ inputs.pytest-args }}
